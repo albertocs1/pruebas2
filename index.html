@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Partes de Obra</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1e40af">
+<link rel="manifest" href="manifest.json">
+<style>
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin:20px; background:#f4f6f8; color:#333; }
+h1 { margin-bottom:5px; text-align:left; font-size:2em; }
+#selectedCompanyName { text-align:left; font-size:1.7em; color:#1e40af; margin-bottom:15px; font-weight:600; }
+#companyMenu, #calendarView { display:none; }
+.company-item { display:inline-block; padding:10px 20px; margin:5px 5px 5px 0; cursor:pointer; border-radius:25px; background:#1e40af; color:white; font-weight:bold; transition:all 0.3s ease; white-space:nowrap; box-shadow:0 2px 5px rgba(0,0,0,0.1);}
+.company-item:hover { background:#3749c1; transform:translateY(-2px); }
+#monthHeader { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; margin-bottom:15px;}
+#monthHeader #calendarTitle { font-size:1.7em; font-weight:bold; text-align:center; }
+#monthHeader button { padding:8px 16px; border-radius:6px; background:transparent; color:black; font-weight:bold; border:none; cursor:pointer; transition:0.2s; }
+#monthHeader button:first-child { justify-self:start; }
+#monthHeader button:last-child { justify-self:end; }
+#monthHeader button:hover { background: rgba(0,0,0,0.05); transform:translateY(-1px); }
+#calendar { display:grid; grid-template-columns:repeat(7,1fr); gap:8px; margin-top:10px; }
+.day { background:white; border-radius:12px; min-height:100px; padding:8px; position:relative; box-shadow:0 2px 8px rgba(0,0,0,0.1); transition:0.2s; display:flex; flex-direction:column; }
+.day:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,0.15);}
+.day .worker-preview-container { margin-top:20px; overflow-y:auto; max-height:70px; }
+.weekdays { display:grid; grid-template-columns:repeat(7,1fr); margin-bottom:5px; font-weight:bold; text-align:center; border-bottom:2px solid #ccc; }
+.weekdays div { padding:6px 0; }
+.weekend { background-color:#d0e7ff; border-radius:12px; }
+.today { background-color:#1e3a8a; color:white; }
+.add-btn { position:absolute; top:6px; right:6px; width:28px; height:28px; border-radius:50%; background:#4caf50; color:white; border:none; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:18px; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.2); transition:0.2s; }
+.add-btn:hover { background:#45a049; transform:translateY(-1px); }
+.modal { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; }
+.modal-content { background:white; padding:25px; border-radius:12px; width:500px; max-height:90%; overflow-y:auto; box-shadow:0 5px 15px rgba(0,0,0,0.3); }
+.close { float:right; cursor:pointer; color:red; font-size:20px; }
+label { display:block; margin-top:12px; }
+input, select { width:100%; padding:6px; margin-top:5px; border-radius:6px; border:1px solid #ccc; }
+.work-block { margin-top:12px; padding:10px; border:1px solid #ddd; border-radius:8px; background:#f9f9f9; }
+.remove-btn { background:#e53935; color:white; border:none; padding:4px 8px; margin-top:5px; cursor:pointer; border-radius:4px; }
+.remove-btn:hover { background:#c62828; }
+.add-work-btn { margin-top:12px; background:#2196f3; color:white; border:none; padding:8px 12px; cursor:pointer; border-radius:6px; }
+.add-work-btn:hover { background:#1976d2; }
+.back-btn { margin-bottom:15px; background:#666; color:white; border:none; padding:8px 14px; border-radius:6px; cursor:pointer; }
+.back-btn:hover { background:#444; }
+#daySummary h3 { margin-top:0; }
+#daySummary hr { margin:5px 0; }
+#daySummary .totalHours { font-weight:normal; }
+</style>
+</head>
+<body>
+
+<h1>Partes de Obra</h1>
+<h2 id="selectedCompanyName"></h2>
+
+<div id="companyMenu">
+  <h2>Empresas</h2>
+  <div id="companyList"></div>
+  <input type="text" id="newCompanyName" placeholder="Nueva empresa">
+  <button onclick="addCompany()">Añadir Empresa</button>
+</div>
+
+<div id="calendarView">
+  <button class="back-btn" onclick="backToMenu()">← Volver</button>
+  <button id="exportBtn" type="button" class="back-btn">📥 Exportar a Excel</button>
+  <div id="monthHeader">
+    <button onclick="prevMonth()">« Mes Anterior</button>
+    <div id="calendarTitle"></div>
+    <button onclick="nextMonth()">Mes Siguiente »</button>
+  </div>
+  <div class="weekdays">
+    <div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div>
+  </div>
+  <div id="calendar"></div>
+</div>
+
+<div id="calendarModal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeModal()">&times;</span>
+    <div id="modalContentArea"></div>
+  </div>
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<!-- SheetJS -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBeF5tQ7lO6fjiOu1IeINTzWD0IJC6y1To",
+  authDomain: "partes-c884f.firebaseapp.com",
+  projectId: "partes-c884f",
+  storageBucket: "partes-c884f.firebasestorage.app",
+  messagingSenderId: "559876972118",
+  appId: "1:559876972118:web:f456bc3af643aa3a1225f7"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+let companyData = {};
+let currentCompany = null;
+let currentDate = null;
+let currentMonth = null;
+let currentYear = null;
+
+function saveToStorage(){ if(!currentCompany) return; db.ref('companies/'+currentCompany).set(companyData[currentCompany]); }
+function loadFromStorage(callback){ db.ref('companies').once('value', snapshot=>{ companyData = snapshot.val() || {}; if(callback) callback(); }); }
+
+function showMenu(){ loadFromStorage(renderCompanyList); document.getElementById('companyMenu').style.display='block'; document.getElementById('calendarView').style.display='none'; document.getElementById('selectedCompanyName').textContent=''; }
+function addCompany(){ const name = document.getElementById('newCompanyName').value.trim(); if(!name || companyData[name]) return; companyData[name] = { calendar:{}, templates:[] }; document.getElementById('newCompanyName').value=''; saveToStorage(); renderCompanyList(); }
+function renderCompanyList(){ const container = document.getElementById('companyList'); container.innerHTML=''; Object.keys(companyData).sort().forEach(c=>{ const div = document.createElement('div'); div.className='company-item'; div.textContent=c; div.onclick=()=>openCompany(c); container.appendChild(div); }); }
+function openCompany(name){ currentCompany=name; const today = new Date(); currentMonth=today.getMonth(); currentYear=today.getFullYear(); document.getElementById('companyMenu').style.display='none'; document.getElementById('calendarView').style.display='block'; document.getElementById('selectedCompanyName').textContent=name; renderCalendar(); }
+function backToMenu(){ currentCompany=null; showMenu(); }
+function prevMonth(){ currentMonth--; if(currentMonth<0){ currentMonth=11; currentYear--; } renderCalendar(); }
+function nextMonth(){ currentMonth++; if(currentMonth>11){ currentMonth=0; currentYear++; } renderCalendar(); }
+
+function renderCalendar(){
+  const calendarDiv = document.getElementById('calendar');
+  calendarDiv.innerHTML='';
+  const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  document.getElementById('calendarTitle').textContent = `${monthNames[currentMonth]} ${currentYear}`;
+
+  const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
+  let firstDay = (new Date(currentYear, currentMonth,1).getDay()+6)%7;
+
+  for(let i=0;i<firstDay;i++) calendarDiv.appendChild(document.createElement('div'));
+
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${today.getMonth()+1}-${today.getDate()}`;
+
+  for(let day=1; day<=daysInMonth; day++){
+    const dateObj = new Date(currentYear, currentMonth, day);
+    const dateKey = `${currentYear}-${currentMonth+1}-${day}`;
+    const div = document.createElement('div');
+    div.className='day';
+    if((dateObj.getDay()+6)%7 >=5) div.classList.add('weekend');
+    if(dateKey===todayStr) div.classList.add('today');
+
+    const dayNumber = document.createElement('div');
+    dayNumber.textContent=day;
+    dayNumber.style.position='absolute';
+    dayNumber.style.top='6px';
+    dayNumber.style.left='6px';
+    dayNumber.style.fontWeight='bold';
+    div.appendChild(dayNumber);
+
+    const btn = document.createElement('button');
+    btn.textContent='+'; btn.className='add-btn';
+    btn.onclick=(ev)=>{ ev.stopPropagation(); openModal(dateKey,false); };
+    div.appendChild(btn);
+
+    const dayData = companyData[currentCompany].calendar[dateKey];
+    if(dayData && dayData.length>0){
+      const containerPreview = document.createElement('div');
+      containerPreview.className='worker-preview-container';
+      dayData.forEach((w)=>{
+        const p=document.createElement('div');
+        p.textContent=w.name+' ('+w.total+'h)';
+        containerPreview.appendChild(p);
+      });
+      div.appendChild(containerPreview);
+    }
+
+    div.onclick=()=>{ if(companyData[currentCompany].calendar[dateKey]) showDaySummary(dateKey); };
+    calendarDiv.appendChild(div);
+  }
+}
+
+function openModal(date,readonly=false){
+  currentDate=date;
+  document.getElementById('calendarModal').style.display='flex';
+  const modalContent = document.getElementById('modalContentArea');
+  modalContent.innerHTML=`<span class="close" onclick="closeModal()">&times;</span>
+    <h2>Registrar Trabajadores - ${formatDate(date)}</h2>
+    <div id="quickForm">
+      <label>Trabajador frecuente:
+        <select id="quickWorkerTemplate"></select>
+      </label>
+      <label>Nombre trabajador:
+        <input type="text" id="quickWorkerName">
+      </label>
+      <label>Rango:
+        <input type="text" id="quickWorkerRank">
+      </label>
+      <div id="workEntries"></div>
+      <button type="button" class="add-work-btn" onclick="addWorkEntry()">+ Añadir trabajo</button>
+      <label>Horas Totales:
+        <input type="number" id="totalHours" readonly>
+      </label>
+      <button onclick="saveEntry()">Guardar</button>
+    </div>`;
+
+  const quickTemplate = document.getElementById('quickWorkerTemplate');
+  quickTemplate.innerHTML='<option value=""></option>';
+  companyData[currentCompany].templates.forEach(t=>{
+    const option = document.createElement('option');
+    option.value=t.name;
+    option.textContent=t.name+' ('+t.rank+')';
+    quickTemplate.appendChild(option);
+  });
+  quickTemplate.onchange = ()=>{
+    const t = companyData[currentCompany].templates.find(x=>x.name===quickTemplate.value);
+    if(t){ document.getElementById('quickWorkerName').value=t.name; document.getElementById('quickWorkerRank').value=t.rank; }
+  };
+  document.getElementById('quickWorkerName').value='';
+  document.getElementById('quickWorkerRank').value='';
+  document.getElementById('workEntries').innerHTML='';
+  addWorkEntry();
+  document.getElementById('totalHours').value=0;
+}
+
+function closeModal(){ document.getElementById('calendarModal').style.display='none'; }
+function addWorkEntry(work='',hours=''){
+  const container=document.getElementById('workEntries');
+  const div=document.createElement('div');
+  div.className='work-block';
+  div.innerHTML=`<label>Trabajo realizado: 
+      <input type="text" class="workName" value="${work}" list="workSuggestions">
+      <datalist id="workSuggestions"></datalist>
+    </label>
+    <label>Horas: <input type="number" class="workHours" value="${hours}" min="0"></label>
+    <button class="remove-btn" type="button">Eliminar</button>`;
+  const datalist = div.querySelector('datalist');
+  const previousWorks = new Set();
+  for(const day in companyData[currentCompany].calendar){
+    companyData[currentCompany].calendar[day].forEach(entry=>{
+      entry.works.forEach(w=>previousWorks.add(w.work));
+    });
+  }
+  previousWorks.forEach(w=>{ const option = document.createElement('option'); option.value=w; datalist.appendChild(option); });
+  div.querySelector('.remove-btn').onclick=()=>{ div.remove(); updateTotalHours(); };
+  div.querySelector('.workHours').oninput=updateTotalHours;
+  container.appendChild(div);
+}
+
+function updateTotalHours(){
+  const hours = Array.from(document.querySelectorAll('.workHours')).reduce((sum,i)=>sum+Number(i.value||0),0);
+  document.getElementById('totalHours').value=hours;
+}
+
+function saveEntry(){
+  const name = document.getElementById('quickWorkerName').value.trim();
+  const rank = document.getElementById('quickWorkerRank').value.trim();
+  if(!name) return alert("Ingrese nombre del trabajador");
+  const works = Array.from(document.querySelectorAll('.work-block')).map(b=>({ work: b.querySelector('.workName').value, hours: Number(b.querySelector('.workHours').value||0) }));
+  const total = works.reduce((sum,w)=>sum+w.hours,0);
+  if(!companyData[currentCompany].calendar[currentDate]) companyData[currentCompany].calendar[currentDate]=[];
+  companyData[currentCompany].calendar[currentDate].push({name, rank, works, total});
+  if(!companyData[currentCompany].templates.find(t=>t.name===name)) companyData[currentCompany].templates.push({name,rank});
+  saveToStorage(); renderCalendar(); closeModal();
+}
+
+function showDaySummary(dateKey){
+  const entries = companyData[currentCompany].calendar[dateKey];
+  const modalContent = document.getElementById('modalContentArea');
+  modalContent.innerHTML=`<span class="close" onclick="closeModal()">&times;</span>
+    <h2>Resumen Día - ${formatDate(dateKey)}</h2>
+    <div id="daySummary"></div>`;
+  const summaryDiv = document.getElementById('daySummary');
+
+  entries.forEach((e,i)=>{
+    const workerDiv = document.createElement('div');
+    workerDiv.innerHTML=`<h3>${e.name} (${e.rank})</h3>`;
+    e.works.forEach(w=>{
+      const p=document.createElement('div');
+      p.textContent=`${w.work}: ${w.hours}h`;
+      workerDiv.appendChild(p);
+    });
+
+    const totalP = document.createElement('div');
+    totalP.textContent=`Total Horas: ${e.total}`;
+    totalP.className='totalHours';
+    workerDiv.appendChild(totalP);
+
+    // Botones Editar y Eliminar
+    const editBtn = document.createElement('button');
+    editBtn.textContent='✏️ Editar';
+    editBtn.onclick=()=>{ editEntry(currentDate, i); };
+    editBtn.style.marginRight='6px';
+    workerDiv.appendChild(editBtn);
+
+    const delBtn = document.createElement('button');
+    delBtn.textContent='🗑️ Eliminar';
+    delBtn.onclick=()=>{
+      deleteEntry(currentDate,i);
+      renderCalendar();
+      showDaySummary(currentDate);
+    };
+    workerDiv.appendChild(delBtn);
+
+    workerDiv.appendChild(document.createElement('hr'));
+    summaryDiv.appendChild(workerDiv);
+  });
+
+  document.getElementById('calendarModal').style.display='flex';
+}
+
+function formatDate(dateStr){ const parts = dateStr.split('-'); return parts[2].padStart(2,'0')+'/'+parts[1].padStart(2,'0')+'/'+parts[0]; }
+
+// ==== Funciones de editar y eliminar entradas ====
+function editEntry(dateKey,index){
+  const entry = companyData[currentCompany].calendar[dateKey][index];
+  openModal(dateKey);
+  document.getElementById('quickWorkerName').value = entry.name;
+  document.getElementById('quickWorkerRank').value = entry.rank;
+  const container = document.getElementById('workEntries');
+  container.innerHTML='';
+  entry.works.forEach(w=>addWorkEntry(w.work, w.hours));
+  document.getElementById('totalHours').value = entry.total;
+
+  // Reemplazar guardar para actualizar en vez de agregar nuevo
+  const saveBtn = document.querySelector('#quickForm button[onclick="saveEntry()"]');
+  saveBtn.onclick = ()=>{
+    const name = document.getElementById('quickWorkerName').value.trim();
+    const rank = document.getElementById('quickWorkerRank').value.trim();
+    if(!name) return alert("Ingrese nombre del trabajador");
+    const works = Array.from(document.querySelectorAll('.work-block')).map(b=>({ work: b.querySelector('.workName').value, hours: Number(b.querySelector('.workHours').value||0) }));
+    const total = works.reduce((sum,w)=>sum+w.hours,0);
+    companyData[currentCompany].calendar[dateKey][index] = {name, rank, works, total};
+    if(!companyData[currentCompany].templates.find(t=>t.name===name)) companyData[currentCompany].templates.push({name,rank});
+    saveToStorage();
+    renderCalendar();
+    closeModal();
+  };
+}
+
+function deleteEntry(dateKey,index){
+  companyData[currentCompany].calendar[dateKey].splice(index,1);
+  if(companyData[currentCompany].calendar[dateKey].length===0) delete companyData[currentCompany].calendar[dateKey];
+  saveToStorage();
+}
+
+// ==== Exportar a Excel ====
+document.getElementById('exportBtn').onclick = ()=>{
+  if(!currentCompany) return alert("Seleccione una empresa");
+  const calendar = companyData[currentCompany].calendar;
+  let data = [["Fecha","Nombre","Rango","Trabajo","Horas","Total día"]];
+  let totalPorTrabajador = {};
+  for(const dateKey in calendar){
+    let totalDia = 0;
+    calendar[dateKey].forEach(entry=>{
+      totalDia += entry.total;
+      if(!totalPorTrabajador[entry.name]) totalPorTrabajador[entry.name]=0;
+      totalPorTrabajador[entry.name]+=entry.total;
+      entry.works.forEach(work=>{
+        data.push([formatDate(dateKey), entry.name, entry.rank, work.work, work.hours,""]);
+      });
+    });
+    data.push(["","","","","", totalDia]);
+  }
+  data.push([]); data.push(["Resumen total por trabajador"]); data.push(["Nombre","Horas Totales"]);
+  for(const trabajador in totalPorTrabajador){ data.push([trabajador, totalPorTrabajador[trabajador]]); }
+
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{wch:12},{wch:20},{wch:15},{wch:25},{wch:10},{wch:12}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, currentCompany);
+  XLSX.writeFile(wb, `${currentCompany}_partes_obra.xlsx`);
+}
+
+// ==== Inicializar PWA ====
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js')
+    .then(()=>console.log("Service Worker registrado"))
+    .catch(err=>console.log("Error Service Worker:", err));
+}
+
+showMenu();
+</script>
+</body>
+</html>
