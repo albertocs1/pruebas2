@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Partes de Obra X</title>
+<title>Partes de Obra X2</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#1e40af">
 <link rel="manifest" href="manifest.json">
@@ -51,7 +51,7 @@ input, select { width:100%; padding:6px; margin-top:5px; border-radius:6px; bord
 </head>
 <body>
 
-<h1>Partes de Obra X</h1>
+<h1>Partes de Obra X2</h1>
 <h2 id="selectedCompanyName"></h2>
 
 <div id="companyMenu">
@@ -82,7 +82,6 @@ input, select { width:100%; padding:6px; margin-top:5px; border-radius:6px; bord
   </div>
 </div>
 
-<!-- Modal de Costes -->
 <div id="costModal" class="modal">
   <div class="modal-content">
     <span class="close" onclick="closeCostModal()">&times;</span>
@@ -92,13 +91,12 @@ input, select { width:100%; padding:6px; margin-top:5px; border-radius:6px; bord
   </div>
 </div>
 
-<!-- Firebase y XLSX -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <script>
-// Config Firebase
+// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyBeF5tQ7lO6fjiOu1IeINTzWD0IJC6y1To",
   authDomain: "partes-c884f.firebaseapp.com",
@@ -110,7 +108,6 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// Variables
 let companyData = {};
 let currentCompany = null;
 let currentDate = null;
@@ -133,7 +130,7 @@ function prevMonth(){ currentMonth--; if(currentMonth<0){ currentMonth=11; curre
 function nextMonth(){ currentMonth++; if(currentMonth>11){ currentMonth=0; currentYear++; } renderCalendar(); }
 
 // ==== Calendario ====
-function renderCalendar(){ 
+function renderCalendar(){
   const calendarDiv=document.getElementById('calendar'); calendarDiv.innerHTML='';
   const monthNames=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   document.getElementById('calendarTitle').textContent=`${monthNames[currentMonth]} ${currentYear}`;
@@ -141,16 +138,19 @@ function renderCalendar(){
   let firstDay=(new Date(currentYear,currentMonth,1).getDay()+6)%7;
   for(let i=0;i<firstDay;i++) calendarDiv.appendChild(document.createElement('div'));
   const today=new Date(); const todayStr=`${today.getFullYear()}-${today.getMonth()+1}-${today.getDate()}`;
-  for(let day=1; day<=daysInMonth; day++){
+  for(let day=1;day<=daysInMonth;day++){
     const dateObj=new Date(currentYear,currentMonth,day); const dateKey=`${currentYear}-${currentMonth+1}-${day}`;
     const div=document.createElement('div'); div.className='day';
-    if((dateObj.getDay()+6)%7 >=5) div.classList.add('weekend');
+    if((dateObj.getDay()+6)%7>=5) div.classList.add('weekend');
     if(dateKey===todayStr) div.classList.add('today');
     const dayNumber=document.createElement('div'); dayNumber.textContent=day; dayNumber.style.position='absolute'; dayNumber.style.top='6px'; dayNumber.style.left='6px'; dayNumber.style.fontWeight='bold'; div.appendChild(dayNumber);
     const btn=document.createElement('button'); btn.textContent='+'; btn.className='add-btn'; btn.onclick=(ev)=>{ ev.stopPropagation(); openModal(dateKey,false); }; div.appendChild(btn);
     const dayData=companyData[currentCompany].calendar[dateKey];
-    if(dayData && dayData.length>0){ const containerPreview=document.createElement('div'); containerPreview.className='worker-preview-container';
-      dayData.forEach(w=>{ const p=document.createElement('div'); p.textContent=w.name+' ('+w.total+'h)'; p.style.fontSize='0.85em'; containerPreview.appendChild(p); }); div.appendChild(containerPreview); }
+    if(dayData && dayData.length>0){
+      const containerPreview=document.createElement('div'); containerPreview.className='worker-preview-container';
+      dayData.forEach(w=>{ const p=document.createElement('div'); p.textContent=w.name+' ('+w.total+'h)'; p.style.fontSize='0.85em'; containerPreview.appendChild(p); });
+      div.appendChild(containerPreview);
+    }
     div.onclick=()=>{ if(companyData[currentCompany].calendar[dateKey]) showDaySummary(dateKey); };
     calendarDiv.appendChild(div);
   }
@@ -210,32 +210,27 @@ function showDaySummary(dateKey){
 }
 function formatDate(dateStr){ const parts=dateStr.split('-'); return parts[2].padStart(2,'0')+'/'+parts[1].padStart(2,'0')+'/'+parts[0]; }
 
-// ==== Exportar a Excel con modal costes ====
+// ==== Exportar a Excel con Coste e Importe ====
 document.getElementById('exportBtn').onclick=()=>{
   if(!currentCompany) return alert("Seleccione una empresa");
   costByRank={};
   const ranks = new Set();
   const calendar = companyData[currentCompany].calendar;
-  for(const dateKey in calendar){
-    calendar[dateKey].forEach(e=>ranks.add(e.rank));
-  }
+  for(const dateKey in calendar){ calendar[dateKey].forEach(e=>ranks.add(e.rank)); }
   if(ranks.size===0){ alert("No hay datos para exportar"); return; }
-  // mostrar modal
   const container=document.getElementById('costInputs'); container.innerHTML='';
   ranks.forEach(r=>{ const div=document.createElement('div'); div.innerHTML=`<label>${r}: <input type="number" min="0" value="0" data-rank="${r}"></label>`; container.appendChild(div); });
   exportCallback=exportExcel; document.getElementById('costModal').style.display='flex';
 }
 function closeCostModal(){ document.getElementById('costModal').style.display='none'; }
-function confirmCosts(){
-  document.querySelectorAll('#costInputs input').forEach(i=>{ costByRank[i.dataset.rank]=parseFloat(i.value)||0; });
-  closeCostModal();
-  if(exportCallback) exportCallback();
-}
+function confirmCosts(){ document.querySelectorAll('#costInputs input').forEach(i=>{ costByRank[i.dataset.rank]=parseFloat(i.value)||0; }); closeCostModal(); if(exportCallback) exportCallback(); }
+
 function exportExcel(){
   const calendar = companyData[currentCompany].calendar;
-  let data=[["Fecha","Nombre","Rango","Coste","Trabajo","Horas","Total día"]];
+  let data=[["Fecha","Nombre","Rango","Coste","Trabajo","Horas","Importe","Total día"]];
   let totalPorTrabajador={};
   let totalPorTrabajo={};
+  
   for(const dateKey in calendar){
     let totalDia=0;
     calendar[dateKey].forEach(entry=>{
@@ -243,22 +238,31 @@ function exportExcel(){
       if(!totalPorTrabajador[entry.name]) totalPorTrabajador[entry.name]=0;
       totalPorTrabajador[entry.name]+=entry.total;
       entry.works.forEach(work=>{
-        data.push([formatDate(dateKey), entry.name, entry.rank, costByRank[entry.rank], work.work, work.hours,""]);
+        const coste = costByRank[entry.rank] || 0;
+        const importe = coste * work.hours;
+        data.push([formatDate(dateKey), entry.name, entry.rank, coste, work.work, work.hours, importe,""]);
         if(!totalPorTrabajo[work.work]) totalPorTrabajo[work.work]=0;
         totalPorTrabajo[work.work]+=work.hours;
       });
     });
-    data.push(["","","","","","",totalDia]);
+    data.push(["","","","","","","",totalDia]);
   }
-  // resumen trabajador
-  data.push([]); data.push(["Resumen total por trabajador"]); data.push(["Nombre","Horas Totales"]);
+
+  data.push([]); 
+  data.push(["Resumen total por trabajador"]); 
+  data.push(["Nombre","Horas Totales"]);
   for(const t in totalPorTrabajador) data.push([t,totalPorTrabajador[t]]);
-  // resumen trabajo
-  data.push([]); data.push(["Resumen total por Trabajo"]); data.push(["Trabajo","Horas Totales"]);
+
+  data.push([]); 
+  data.push(["Resumen total por Trabajo"]); 
+  data.push(["Trabajo","Horas Totales"]);
   for(const w in totalPorTrabajo) data.push([w,totalPorTrabajo[w]]);
+
   const ws=XLSX.utils.aoa_to_sheet(data);
-  ws['!cols']=[{wch:12},{wch:20},{wch:12},{wch:10},{wch:25},{wch:10},{wch:12}];
-  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, currentCompany); XLSX.writeFile(wb, `${currentCompany}_partes_obra.xlsx`);
+  ws['!cols']=[{wch:12},{wch:20},{wch:12},{wch:10},{wch:25},{wch:10},{wch:12},{wch:12}];
+  const wb=XLSX.utils.book_new(); 
+  XLSX.utils.book_append_sheet(wb, ws, currentCompany); 
+  XLSX.writeFile(wb, `${currentCompany}_partes_obra.xlsx`);
 }
 
 // ==== Inicializar PWA ====
