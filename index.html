@@ -7,6 +7,7 @@
 <meta name="theme-color" content="#1e40af">
 <link rel="manifest" href="manifest.json">
 <style>
+/* ==== Estilos ==== */
 body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin:20px; background:#f4f6f8; color:#333; }
 h1 { margin-bottom:5px; text-align:left; font-size:2em; }
 #selectedCompanyName { text-align:left; font-size:1.7em; color:#1e40af; margin-bottom:15px; font-weight:600; }
@@ -82,8 +83,7 @@ input, select { width:100%; padding:6px; margin-top:5px; border-radius:6px; bord
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-<!-- SheetJS -->
-<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <script>
 const firebaseConfig = {
@@ -96,80 +96,65 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+</script>
 
+<script>
+// ==== Variables globales ====
 let companyData = {};
 let currentCompany = null;
 let currentDate = null;
 let currentMonth = null;
 let currentYear = null;
 
-function saveToStorage(){ if(!currentCompany) return; db.ref('companies/'+currentCompany).set(companyData[currentCompany]); }
-function loadFromStorage(callback){ db.ref('companies').once('value', snapshot=>{ companyData = snapshot.val() || {}; if(callback) callback(); }); }
+// ==== Firebase ====
+function saveToStorage(){
+  if(!currentCompany) return;
+  db.ref('companies/'+currentCompany).set(companyData[currentCompany]);
+}
+function loadFromStorage(callback){
+  db.ref('companies').once('value', snapshot=>{
+    companyData = snapshot.val() || {};
+    if(callback) callback();
+  });
+}
 
+// ==== UI ====
 function showMenu(){ loadFromStorage(renderCompanyList); document.getElementById('companyMenu').style.display='block'; document.getElementById('calendarView').style.display='none'; document.getElementById('selectedCompanyName').textContent=''; }
-function addCompany(){ const name = document.getElementById('newCompanyName').value.trim(); if(!name || companyData[name]) return; companyData[name] = { calendar:{}, templates:[] }; document.getElementById('newCompanyName').value=''; saveToStorage(); renderCompanyList(); }
-function renderCompanyList(){ const container = document.getElementById('companyList'); container.innerHTML=''; Object.keys(companyData).sort().forEach(c=>{ const div = document.createElement('div'); div.className='company-item'; div.textContent=c; div.onclick=()=>openCompany(c); container.appendChild(div); }); }
-function openCompany(name){ currentCompany=name; const today = new Date(); currentMonth=today.getMonth(); currentYear=today.getFullYear(); document.getElementById('companyMenu').style.display='none'; document.getElementById('calendarView').style.display='block'; document.getElementById('selectedCompanyName').textContent=name; renderCalendar(); }
+function addCompany(){ const name=document.getElementById('newCompanyName').value.trim(); if(!name || companyData[name]) return; companyData[name]={calendar:{},templates:[]}; document.getElementById('newCompanyName').value=''; saveToStorage(); renderCompanyList(); }
+function renderCompanyList(){ const container=document.getElementById('companyList'); container.innerHTML=''; Object.keys(companyData).sort().forEach(c=>{ const div=document.createElement('div'); div.className='company-item'; div.textContent=c; div.onclick=()=>openCompany(c); container.appendChild(div); }); }
+function openCompany(name){ currentCompany=name; const today=new Date(); currentMonth=today.getMonth(); currentYear=today.getFullYear(); document.getElementById('companyMenu').style.display='none'; document.getElementById('calendarView').style.display='block'; document.getElementById('selectedCompanyName').textContent=name; renderCalendar(); }
 function backToMenu(){ currentCompany=null; showMenu(); }
 function prevMonth(){ currentMonth--; if(currentMonth<0){ currentMonth=11; currentYear--; } renderCalendar(); }
 function nextMonth(){ currentMonth++; if(currentMonth>11){ currentMonth=0; currentYear++; } renderCalendar(); }
 
+// ==== Calendario ====
 function renderCalendar(){
-  const calendarDiv = document.getElementById('calendar');
-  calendarDiv.innerHTML='';
-  const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  document.getElementById('calendarTitle').textContent = `${monthNames[currentMonth]} ${currentYear}`;
-
-  const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
-  let firstDay = (new Date(currentYear, currentMonth,1).getDay()+6)%7;
-
+  const calendarDiv=document.getElementById('calendar'); calendarDiv.innerHTML='';
+  const monthNames=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  document.getElementById('calendarTitle').textContent=`${monthNames[currentMonth]} ${currentYear}`;
+  const daysInMonth=new Date(currentYear,currentMonth+1,0).getDate();
+  let firstDay=(new Date(currentYear,currentMonth,1).getDay()+6)%7;
   for(let i=0;i<firstDay;i++) calendarDiv.appendChild(document.createElement('div'));
-
-  const today = new Date();
-  const todayStr = `${today.getFullYear()}-${today.getMonth()+1}-${today.getDate()}`;
-
+  const today=new Date(); const todayStr=`${today.getFullYear()}-${today.getMonth()+1}-${today.getDate()}`;
   for(let day=1; day<=daysInMonth; day++){
-    const dateObj = new Date(currentYear, currentMonth, day);
-    const dateKey = `${currentYear}-${currentMonth+1}-${day}`;
-    const div = document.createElement('div');
-    div.className='day';
+    const dateObj=new Date(currentYear,currentMonth,day); const dateKey=`${currentYear}-${currentMonth+1}-${day}`;
+    const div=document.createElement('div'); div.className='day';
     if((dateObj.getDay()+6)%7 >=5) div.classList.add('weekend');
     if(dateKey===todayStr) div.classList.add('today');
-
-    const dayNumber = document.createElement('div');
-    dayNumber.textContent=day;
-    dayNumber.style.position='absolute';
-    dayNumber.style.top='6px';
-    dayNumber.style.left='6px';
-    dayNumber.style.fontWeight='bold';
-    div.appendChild(dayNumber);
-
-    const btn = document.createElement('button');
-    btn.textContent='+'; btn.className='add-btn';
-    btn.onclick=(ev)=>{ ev.stopPropagation(); openModal(dateKey,false); };
-    div.appendChild(btn);
-
-    const dayData = companyData[currentCompany].calendar[dateKey];
-    if(dayData && dayData.length>0){
-      const containerPreview = document.createElement('div');
-      containerPreview.className='worker-preview-container';
-      dayData.forEach((w)=>{
-        const p=document.createElement('div');
-        p.textContent=w.name+' ('+w.total+'h)';
-        containerPreview.appendChild(p);
-      });
-      div.appendChild(containerPreview);
-    }
-
+    const dayNumber=document.createElement('div'); dayNumber.textContent=day; dayNumber.style.position='absolute'; dayNumber.style.top='6px'; dayNumber.style.left='6px'; dayNumber.style.fontWeight='bold'; div.appendChild(dayNumber);
+    const btn=document.createElement('button'); btn.textContent='+'; btn.className='add-btn'; btn.onclick=(ev)=>{ ev.stopPropagation(); openModal(dateKey,false); }; div.appendChild(btn);
+    const dayData=companyData[currentCompany].calendar[dateKey];
+    if(dayData && dayData.length>0){ const containerPreview=document.createElement('div'); containerPreview.className='worker-preview-container'; dayData.forEach((w)=>{ const p=document.createElement('div'); p.textContent=w.name+' ('+w.total+'h)'; containerPreview.appendChild(p); }); div.appendChild(containerPreview); }
     div.onclick=()=>{ if(companyData[currentCompany].calendar[dateKey]) showDaySummary(dateKey); };
     calendarDiv.appendChild(div);
   }
 }
 
+// ==== Modal ====
 function openModal(date,readonly=false){
   currentDate=date;
   document.getElementById('calendarModal').style.display='flex';
-  const modalContent = document.getElementById('modalContentArea');
+  const modalContent=document.getElementById('modalContentArea');
   modalContent.innerHTML=`<span class="close" onclick="closeModal()">&times;</span>
     <h2>Registrar Trabajadores - ${formatDate(date)}</h2>
     <div id="quickForm">
@@ -189,181 +174,96 @@ function openModal(date,readonly=false){
       </label>
       <button onclick="saveEntry()">Guardar</button>
     </div>`;
-
-  const quickTemplate = document.getElementById('quickWorkerTemplate');
-  quickTemplate.innerHTML='<option value=""></option>';
-  companyData[currentCompany].templates.forEach(t=>{
-    const option = document.createElement('option');
-    option.value=t.name;
-    option.textContent=t.name+' ('+t.rank+')';
-    quickTemplate.appendChild(option);
-  });
-  quickTemplate.onchange = ()=>{
-    const t = companyData[currentCompany].templates.find(x=>x.name===quickTemplate.value);
-    if(t){ document.getElementById('quickWorkerName').value=t.name; document.getElementById('quickWorkerRank').value=t.rank; }
-  };
-  document.getElementById('quickWorkerName').value='';
-  document.getElementById('quickWorkerRank').value='';
-  document.getElementById('workEntries').innerHTML='';
-  addWorkEntry();
-  document.getElementById('totalHours').value=0;
+  const quickTemplate=document.getElementById('quickWorkerTemplate'); quickTemplate.innerHTML='<option value=""></option>';
+  companyData[currentCompany].templates.forEach(t=>{ const option=document.createElement('option'); option.value=t.name; option.textContent=t.name+' ('+t.rank+')'; quickTemplate.appendChild(option); });
+  quickTemplate.onchange=()=>{ const t=companyData[currentCompany].templates.find(x=>x.name===quickTemplate.value); if(t){ document.getElementById('quickWorkerName').value=t.name; document.getElementById('quickWorkerRank').value=t.rank; } };
+  document.getElementById('quickWorkerName').value=''; document.getElementById('quickWorkerRank').value=''; document.getElementById('workEntries').innerHTML=''; addWorkEntry(); document.getElementById('totalHours').value=0;
 }
-
 function closeModal(){ document.getElementById('calendarModal').style.display='none'; }
 function addWorkEntry(work='',hours=''){
-  const container=document.getElementById('workEntries');
-  const div=document.createElement('div');
-  div.className='work-block';
-  div.innerHTML=`<label>Trabajo realizado: 
-      <input type="text" class="workName" value="${work}" list="workSuggestions">
-      <datalist id="workSuggestions"></datalist>
-    </label>
-    <label>Horas: <input type="number" class="workHours" value="${hours}" min="0"></label>
-    <button class="remove-btn" type="button">Eliminar</button>`;
-  const datalist = div.querySelector('datalist');
-  const previousWorks = new Set();
-  for(const day in companyData[currentCompany].calendar){
-    companyData[currentCompany].calendar[day].forEach(entry=>{
-      entry.works.forEach(w=>previousWorks.add(w.work));
-    });
-  }
-  previousWorks.forEach(w=>{ const option = document.createElement('option'); option.value=w; datalist.appendChild(option); });
-  div.querySelector('.remove-btn').onclick=()=>{ div.remove(); updateTotalHours(); };
-  div.querySelector('.workHours').oninput=updateTotalHours;
+  const container=document.getElementById('workEntries'); const div=document.createElement('div'); div.className='work-block';
+  div.innerHTML=`<label>Trabajo realizado: <input type="text" class="workName" value="${work}" list="workSuggestions"><datalist id="workSuggestions"></datalist></label><label>Horas: <input type="number" class="workHours" value="${hours}" min="0"></label><button class="remove-btn" type="button">Eliminar</button>`;
+  const datalist=div.querySelector('datalist'); const previousWorks=new Set();
+  for(const day in companyData[currentCompany].calendar){ companyData[currentCompany].calendar[day].forEach(entry=>{ entry.works.forEach(w=>previousWorks.add(w.work)); }); }
+  previousWorks.forEach(w=>{ const option=document.createElement('option'); option.value=w; datalist.appendChild(option); });
+  div.querySelector('.remove-btn').onclick=()=>{ div.remove(); updateTotalHours(); }; div.querySelector('.workHours').oninput=updateTotalHours;
   container.appendChild(div);
 }
-
-function updateTotalHours(){
-  const hours = Array.from(document.querySelectorAll('.workHours')).reduce((sum,i)=>sum+Number(i.value||0),0);
-  document.getElementById('totalHours').value=hours;
-}
-
-function saveEntry(){
-  const name = document.getElementById('quickWorkerName').value.trim();
-  const rank = document.getElementById('quickWorkerRank').value.trim();
-  if(!name) return alert("Ingrese nombre del trabajador");
-  const works = Array.from(document.querySelectorAll('.work-block')).map(b=>({ work: b.querySelector('.workName').value, hours: Number(b.querySelector('.workHours').value||0) }));
-  const total = works.reduce((sum,w)=>sum+w.hours,0);
+function updateTotalHours(){ const hours=Array.from(document.querySelectorAll('.workHours')).reduce((sum,i)=>sum+Number(i.value||0),0); document.getElementById('totalHours').value=hours; }
+function saveEntry(){ const name=document.getElementById('quickWorkerName').value.trim(); const rank=document.getElementById('quickWorkerRank').value.trim(); if(!name) return alert("Ingrese nombre del trabajador");
+  const works=Array.from(document.querySelectorAll('.work-block')).map(b=>({ work:b.querySelector('.workName').value, hours:Number(b.querySelector('.workHours').value||0) }));
+  const total=works.reduce((sum,w)=>sum+w.hours,0);
   if(!companyData[currentCompany].calendar[currentDate]) companyData[currentCompany].calendar[currentDate]=[];
   companyData[currentCompany].calendar[currentDate].push({name, rank, works, total});
   if(!companyData[currentCompany].templates.find(t=>t.name===name)) companyData[currentCompany].templates.push({name,rank});
   saveToStorage(); renderCalendar(); closeModal();
 }
 
+// ==== Resumen día ====
 function showDaySummary(dateKey){
-  const entries = companyData[currentCompany].calendar[dateKey];
-  const modalContent = document.getElementById('modalContentArea');
-  modalContent.innerHTML=`<span class="close" onclick="closeModal()">&times;</span>
-    <h2>Resumen Día - ${formatDate(dateKey)}</h2>
-    <div id="daySummary"></div>`;
-  const summaryDiv = document.getElementById('daySummary');
-
-  entries.forEach((e,i)=>{
-    const workerDiv = document.createElement('div');
-    workerDiv.innerHTML=`<h3>${e.name} (${e.rank})</h3>`;
-    e.works.forEach(w=>{
-      const p=document.createElement('div');
-      p.textContent=`${w.work}: ${w.hours}h`;
-      workerDiv.appendChild(p);
-    });
-
-    const totalP = document.createElement('div');
-    totalP.textContent=`Total Horas: ${e.total}`;
-    totalP.className='totalHours';
-    workerDiv.appendChild(totalP);
-
-    // Botones Editar y Eliminar
-    const editBtn = document.createElement('button');
-    editBtn.textContent='✏️ Editar';
-    editBtn.onclick=()=>{ editEntry(currentDate, i); };
-    editBtn.style.marginRight='6px';
-    workerDiv.appendChild(editBtn);
-
-    const delBtn = document.createElement('button');
-    delBtn.textContent='🗑️ Eliminar';
-    delBtn.onclick=()=>{
-      deleteEntry(currentDate,i);
-      renderCalendar();
-      showDaySummary(currentDate);
-    };
-    workerDiv.appendChild(delBtn);
-
-    workerDiv.appendChild(document.createElement('hr'));
+  const entries=companyData[currentCompany].calendar[dateKey];
+  const modalContent=document.getElementById('modalContentArea'); modalContent.innerHTML=`<span class="close" onclick="closeModal()">&times;</span><h2>Resumen Día - ${formatDate(dateKey)}</h2><div id="daySummary"></div>`;
+  const summaryDiv=document.getElementById('daySummary');
+  entries.forEach(e=>{
+    const workerDiv=document.createElement('div'); workerDiv.innerHTML=`<h3>${e.name} (${e.rank})</h3>`;
+    e.works.forEach(w=>{ const p=document.createElement('div'); p.textContent=`${w.work}: ${w.hours}h`; workerDiv.appendChild(p); });
+    const totalP=document.createElement('div'); totalP.textContent=`Total Horas: ${e.total}`; totalP.className='totalHours';
+    workerDiv.appendChild(totalP); workerDiv.appendChild(document.createElement('hr'));
     summaryDiv.appendChild(workerDiv);
   });
-
   document.getElementById('calendarModal').style.display='flex';
 }
+function formatDate(dateStr){ const parts=dateStr.split('-'); return parts[2].padStart(2,'0')+'/'+parts[1].padStart(2,'0')+'/'+parts[0]; }
 
-function formatDate(dateStr){ const parts = dateStr.split('-'); return parts[2].padStart(2,'0')+'/'+parts[1].padStart(2,'0')+'/'+parts[0]; }
-
-// ==== Funciones de editar y eliminar entradas ====
-function editEntry(dateKey,index){
-  const entry = companyData[currentCompany].calendar[dateKey][index];
-  openModal(dateKey);
-  document.getElementById('quickWorkerName').value = entry.name;
-  document.getElementById('quickWorkerRank').value = entry.rank;
-  const container = document.getElementById('workEntries');
-  container.innerHTML='';
-  entry.works.forEach(w=>addWorkEntry(w.work, w.hours));
-  document.getElementById('totalHours').value = entry.total;
-
-  // Reemplazar guardar para actualizar en vez de agregar nuevo
-  const saveBtn = document.querySelector('#quickForm button[onclick="saveEntry()"]');
-  saveBtn.onclick = ()=>{
-    const name = document.getElementById('quickWorkerName').value.trim();
-    const rank = document.getElementById('quickWorkerRank').value.trim();
-    if(!name) return alert("Ingrese nombre del trabajador");
-    const works = Array.from(document.querySelectorAll('.work-block')).map(b=>({ work: b.querySelector('.workName').value, hours: Number(b.querySelector('.workHours').value||0) }));
-    const total = works.reduce((sum,w)=>sum+w.hours,0);
-    companyData[currentCompany].calendar[dateKey][index] = {name, rank, works, total};
-    if(!companyData[currentCompany].templates.find(t=>t.name===name)) companyData[currentCompany].templates.push({name,rank});
-    saveToStorage();
-    renderCalendar();
-    closeModal();
-  };
-}
-
-function deleteEntry(dateKey,index){
-  companyData[currentCompany].calendar[dateKey].splice(index,1);
-  if(companyData[currentCompany].calendar[dateKey].length===0) delete companyData[currentCompany].calendar[dateKey];
-  saveToStorage();
-}
-
-// ==== Exportar a Excel ====
+// ==== Exportar a Excel con resumen por trabajador y por trabajo ====
 document.getElementById('exportBtn').onclick = ()=>{
   if(!currentCompany) return alert("Seleccione una empresa");
   const calendar = companyData[currentCompany].calendar;
-  let data = [["Fecha","Nombre","Rango","Trabajo","Horas","Total día"]];
+  let data=[["Fecha","Nombre","Rango","Trabajo","Horas","Total día"]];
   let totalPorTrabajador = {};
+  let totalPorTrabajo = {};
+
   for(const dateKey in calendar){
     let totalDia = 0;
     calendar[dateKey].forEach(entry=>{
       totalDia += entry.total;
       if(!totalPorTrabajador[entry.name]) totalPorTrabajador[entry.name]=0;
       totalPorTrabajador[entry.name]+=entry.total;
+
       entry.works.forEach(work=>{
         data.push([formatDate(dateKey), entry.name, entry.rank, work.work, work.hours,""]);
+        if(!totalPorTrabajo[work.work]) totalPorTrabajo[work.work]=0;
+        totalPorTrabajo[work.work]+=work.hours;
       });
     });
     data.push(["","","","","", totalDia]);
   }
-  data.push([]); data.push(["Resumen total por trabajador"]); data.push(["Nombre","Horas Totales"]);
-  for(const trabajador in totalPorTrabajador){ data.push([trabajador, totalPorTrabajador[trabajador]]); }
 
-  const ws = XLSX.utils.aoa_to_sheet(data);
-  ws['!cols'] = [{wch:12},{wch:20},{wch:15},{wch:25},{wch:10},{wch:12}];
-  const wb = XLSX.utils.book_new();
+  // Resumen por trabajador
+  data.push([]);
+  data.push(["Resumen total por trabajador"]);
+  data.push(["Nombre","Horas Totales"]);
+  for(const trabajador in totalPorTrabajador){
+    data.push([trabajador, totalPorTrabajador[trabajador]]);
+  }
+
+  // Resumen por trabajo
+  data.push([]);
+  data.push(["Resumen total por Trabajo"]);
+  data.push(["Trabajo","Horas Totales"]);
+  for(const trabajo in totalPorTrabajo){
+    data.push([trabajo, totalPorTrabajo[trabajo]]);
+  }
+
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  ws['!cols']=[{wch:12},{wch:20},{wch:15},{wch:25},{wch:10},{wch:12}];
+  const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, currentCompany);
   XLSX.writeFile(wb, `${currentCompany}_partes_obra.xlsx`);
 }
 
 // ==== Inicializar PWA ====
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('sw.js')
-    .then(()=>console.log("Service Worker registrado"))
-    .catch(err=>console.log("Error Service Worker:", err));
-}
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').then(()=>console.log("Service Worker registrado")).catch(err=>console.log("Error Service Worker:", err)); }
 
 showMenu();
 </script>
