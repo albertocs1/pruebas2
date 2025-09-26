@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Partes de Obra X2</title>
+<title>Partes de Obra XXX</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#1e40af">
 <link rel="manifest" href="manifest.json">
@@ -51,7 +51,7 @@ input, select { width:100%; padding:6px; margin-top:5px; border-radius:6px; bord
 </head>
 <body>
 
-<h1>Partes de Obra X2</h1>
+<h1>Partes de Obra XXX</h1>
 <h2 id="selectedCompanyName"></h2>
 
 <div id="companyMenu">
@@ -96,7 +96,7 @@ input, select { width:100%; padding:6px; margin-top:5px; border-radius:6px; bord
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <script>
-// Firebase config
+// Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyBeF5tQ7lO6fjiOu1IeINTzWD0IJC6y1To",
   authDomain: "partes-c884f.firebaseapp.com",
@@ -198,6 +198,7 @@ function saveEntry(){ const name=document.getElementById('quickWorkerName').valu
   if(!companyData[currentCompany].templates.find(t=>t.name===name)) companyData[currentCompany].templates.push({name,rank});
   saveToStorage(); renderCalendar(); closeModal();
 }
+
 function showDaySummary(dateKey){
   const entries=companyData[currentCompany].calendar[dateKey]; const modalContent=document.getElementById('modalContentArea');
   modalContent.innerHTML=`<span class="close" onclick="closeModal()">&times;</span><h2>Resumen Día - ${formatDate(dateKey)}</h2><div id="daySummary"></div>`;
@@ -208,12 +209,12 @@ function showDaySummary(dateKey){
     summaryDiv.appendChild(workerDiv); });
   document.getElementById('calendarModal').style.display='flex';
 }
+
 function formatDate(dateStr){ const parts=dateStr.split('-'); return parts[2].padStart(2,'0')+'/'+parts[1].padStart(2,'0')+'/'+parts[0]; }
 
-// ==== Exportar a Excel con Coste e Importe ====
+// ==== Exportar a Excel con Coste e Importe e Importe Total por Trabajo ====
 document.getElementById('exportBtn').onclick=()=>{
   if(!currentCompany) return alert("Seleccione una empresa");
-  costByRank={};
   const ranks = new Set();
   const calendar = companyData[currentCompany].calendar;
   for(const dateKey in calendar){ calendar[dateKey].forEach(e=>ranks.add(e.rank)); }
@@ -222,6 +223,7 @@ document.getElementById('exportBtn').onclick=()=>{
   ranks.forEach(r=>{ const div=document.createElement('div'); div.innerHTML=`<label>${r}: <input type="number" min="0" value="0" data-rank="${r}"></label>`; container.appendChild(div); });
   exportCallback=exportExcel; document.getElementById('costModal').style.display='flex';
 }
+
 function closeCostModal(){ document.getElementById('costModal').style.display='none'; }
 function confirmCosts(){ document.querySelectorAll('#costInputs input').forEach(i=>{ costByRank[i.dataset.rank]=parseFloat(i.value)||0; }); closeCostModal(); if(exportCallback) exportCallback(); }
 
@@ -230,33 +232,41 @@ function exportExcel(){
   let data=[["Fecha","Nombre","Rango","Coste","Trabajo","Horas","Importe","Total día"]];
   let totalPorTrabajador={};
   let totalPorTrabajo={};
-  
+  let importePorTrabajo={};
+
   for(const dateKey in calendar){
     let totalDia=0;
     calendar[dateKey].forEach(entry=>{
       totalDia+=entry.total;
       if(!totalPorTrabajador[entry.name]) totalPorTrabajador[entry.name]=0;
       totalPorTrabajador[entry.name]+=entry.total;
+
       entry.works.forEach(work=>{
         const coste = costByRank[entry.rank] || 0;
         const importe = coste * work.hours;
         data.push([formatDate(dateKey), entry.name, entry.rank, coste, work.work, work.hours, importe,""]);
+
         if(!totalPorTrabajo[work.work]) totalPorTrabajo[work.work]=0;
         totalPorTrabajo[work.work]+=work.hours;
+
+        if(!importePorTrabajo[work.work]) importePorTrabajo[work.work]=0;
+        importePorTrabajo[work.work]+=importe;
       });
     });
     data.push(["","","","","","","",totalDia]);
   }
 
+  // Resumen total por trabajador
   data.push([]); 
   data.push(["Resumen total por trabajador"]); 
   data.push(["Nombre","Horas Totales"]);
   for(const t in totalPorTrabajador) data.push([t,totalPorTrabajador[t]]);
 
+  // Resumen por trabajo con Importe Total
   data.push([]); 
   data.push(["Resumen total por Trabajo"]); 
-  data.push(["Trabajo","Horas Totales"]);
-  for(const w in totalPorTrabajo) data.push([w,totalPorTrabajo[w]]);
+  data.push(["Trabajo","Horas Totales","Importe Total"]);
+  for(const w in totalPorTrabajo) data.push([w,totalPorTrabajo[w], importePorTrabajo[w]]);
 
   const ws=XLSX.utils.aoa_to_sheet(data);
   ws['!cols']=[{wch:12},{wch:20},{wch:12},{wch:10},{wch:25},{wch:10},{wch:12},{wch:12}];
@@ -266,7 +276,9 @@ function exportExcel(){
 }
 
 // ==== Inicializar PWA ====
-if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').then(()=>console.log("Service Worker registrado")).catch(err=>console.log("Error Service Worker:",err)); }
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').then(()=>console.log("Service Worker registrado")).catch(err=>console.log("Error Service Worker:", err));
+}
 
 showMenu();
 </script>
