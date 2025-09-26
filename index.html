@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Partes de Obra</title>
+<title>Partes de Obra X</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#1e40af">
 <link rel="manifest" href="manifest.json">
@@ -30,7 +30,7 @@ h1 { margin-bottom:5px; text-align:left; font-size:2em; }
 .today { background-color:#1e3a8a; color:white; }
 .add-btn { position:absolute; top:6px; right:6px; width:28px; height:28px; border-radius:50%; background:#4caf50; color:white; border:none; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:18px; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.2); transition:0.2s; }
 .add-btn:hover { background:#45a049; transform:translateY(-1px); }
-.modal { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; }
+.modal { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:9999; }
 .modal-content { background:white; padding:25px; border-radius:12px; width:500px; max-height:90%; overflow-y:auto; box-shadow:0 5px 15px rgba(0,0,0,0.3); }
 .close { float:right; cursor:pointer; color:red; font-size:20px; }
 label { display:block; margin-top:12px; }
@@ -45,11 +45,13 @@ input, select { width:100%; padding:6px; margin-top:5px; border-radius:6px; bord
 #daySummary h3 { margin-top:0; }
 #daySummary hr { margin:5px 0; }
 #daySummary .totalHours { font-weight:normal; }
+#costModal label { margin-top:8px; font-weight:bold; }
+#costModal input { margin-bottom:6px; }
 </style>
 </head>
 <body>
 
-<h1>Partes de Obra</h1>
+<h1>Partes de Obra X</h1>
 <h2 id="selectedCompanyName"></h2>
 
 <div id="companyMenu">
@@ -80,12 +82,23 @@ input, select { width:100%; padding:6px; margin-top:5px; border-radius:6px; bord
   </div>
 </div>
 
-<!-- Firebase -->
+<!-- Modal de Costes -->
+<div id="costModal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeCostModal()">&times;</span>
+    <h2>Coste por Rango</h2>
+    <div id="costInputs"></div>
+    <button onclick="confirmCosts()">Confirmar</button>
+  </div>
+</div>
+
+<!-- Firebase y XLSX -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <script>
+// Config Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyBeF5tQ7lO6fjiOu1IeINTzWD0IJC6y1To",
   authDomain: "partes-c884f.firebaseapp.com",
@@ -97,12 +110,14 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// ==== Variables globales ====
+// Variables
 let companyData = {};
 let currentCompany = null;
 let currentDate = null;
 let currentMonth = null;
 let currentYear = null;
+let costByRank = {};
+let exportCallback = null;
 
 // ==== Firebase ====
 function saveToStorage(){ if(!currentCompany) return; db.ref('companies/'+currentCompany).set(companyData[currentCompany]); }
@@ -141,7 +156,7 @@ function renderCalendar(){
   }
 }
 
-// ==== Modal ====
+// ==== Modal trabajadores ====
 function openModal(date,readonly=false){
   currentDate=date;
   document.getElementById('calendarModal').style.display='flex';
@@ -149,20 +164,12 @@ function openModal(date,readonly=false){
   modalContent.innerHTML=`<span class="close" onclick="closeModal()">&times;</span>
     <h2>Registrar Trabajadores - ${formatDate(date)}</h2>
     <div id="quickForm">
-      <label>Trabajador frecuente:
-        <select id="quickWorkerTemplate"></select>
-      </label>
-      <label>Nombre trabajador:
-        <input type="text" id="quickWorkerName">
-      </label>
-      <label>Rango:
-        <input type="text" id="quickWorkerRank">
-      </label>
+      <label>Trabajador frecuente:<select id="quickWorkerTemplate"></select></label>
+      <label>Nombre trabajador:<input type="text" id="quickWorkerName"></label>
+      <label>Rango:<input type="text" id="quickWorkerRank"></label>
       <div id="workEntries"></div>
       <button type="button" class="add-work-btn" onclick="addWorkEntry()">+ Añadir trabajo</button>
-      <label>Horas Totales:
-        <input type="number" id="totalHours" readonly>
-      </label>
+      <label>Horas Totales:<input type="number" id="totalHours" readonly></label>
       <button onclick="saveEntry()">Guardar</button>
     </div>`;
   const quickTemplate=document.getElementById('quickWorkerTemplate'); quickTemplate.innerHTML='<option value=""></option>';
@@ -203,34 +210,38 @@ function showDaySummary(dateKey){
 }
 function formatDate(dateStr){ const parts=dateStr.split('-'); return parts[2].padStart(2,'0')+'/'+parts[1].padStart(2,'0')+'/'+parts[0]; }
 
-// ==== Exportar a Excel con resumen por trabajador, por trabajo y coste ====
-document.getElementById('exportBtn').onclick = ()=>{
+// ==== Exportar a Excel con modal costes ====
+document.getElementById('exportBtn').onclick=()=>{
   if(!currentCompany) return alert("Seleccione una empresa");
+  costByRank={};
+  const ranks = new Set();
   const calendar = companyData[currentCompany].calendar;
-  
-  // 1️⃣ Pedir coste por cada rango
-  let costByRank = {};
   for(const dateKey in calendar){
-    calendar[dateKey].forEach(entry=>{
-      if(!(entry.rank in costByRank)){
-        let cost = prompt(`Introduce el coste por hora para el rango "${entry.rank}":`, "0");
-        costByRank[entry.rank] = parseFloat(cost) || 0;
-      }
-    });
+    calendar[dateKey].forEach(e=>ranks.add(e.rank));
   }
-
-  // 2️⃣ Generar datos para Excel
+  if(ranks.size===0){ alert("No hay datos para exportar"); return; }
+  // mostrar modal
+  const container=document.getElementById('costInputs'); container.innerHTML='';
+  ranks.forEach(r=>{ const div=document.createElement('div'); div.innerHTML=`<label>${r}: <input type="number" min="0" value="0" data-rank="${r}"></label>`; container.appendChild(div); });
+  exportCallback=exportExcel; document.getElementById('costModal').style.display='flex';
+}
+function closeCostModal(){ document.getElementById('costModal').style.display='none'; }
+function confirmCosts(){
+  document.querySelectorAll('#costInputs input').forEach(i=>{ costByRank[i.dataset.rank]=parseFloat(i.value)||0; });
+  closeCostModal();
+  if(exportCallback) exportCallback();
+}
+function exportExcel(){
+  const calendar = companyData[currentCompany].calendar;
   let data=[["Fecha","Nombre","Rango","Coste","Trabajo","Horas","Total día"]];
-  let totalPorTrabajador = {};
-  let totalPorTrabajo = {};
-  
+  let totalPorTrabajador={};
+  let totalPorTrabajo={};
   for(const dateKey in calendar){
-    let totalDia = 0;
+    let totalDia=0;
     calendar[dateKey].forEach(entry=>{
-      totalDia += entry.total;
+      totalDia+=entry.total;
       if(!totalPorTrabajador[entry.name]) totalPorTrabajador[entry.name]=0;
       totalPorTrabajador[entry.name]+=entry.total;
-
       entry.works.forEach(work=>{
         data.push([formatDate(dateKey), entry.name, entry.rank, costByRank[entry.rank], work.work, work.hours,""]);
         if(!totalPorTrabajo[work.work]) totalPorTrabajo[work.work]=0;
@@ -239,37 +250,19 @@ document.getElementById('exportBtn').onclick = ()=>{
     });
     data.push(["","","","","","",totalDia]);
   }
-
-  // Resumen por trabajador
-  data.push([]);
-  data.push(["Resumen total por trabajador"]);
-  data.push(["Nombre","Horas Totales"]);
-  for(const trabajador in totalPorTrabajador){
-    data.push([trabajador, totalPorTrabajador[trabajador]]);
-  }
-
-  // Resumen por trabajo
-  data.push([]);
-  data.push(["Resumen total por Trabajo"]);
-  data.push(["Trabajo","Horas Totales"]);
-  for(const trabajo in totalPorTrabajo){
-    data.push([trabajo, totalPorTrabajo[trabajo]]);
-  }
-
-  // Crear Excel
+  // resumen trabajador
+  data.push([]); data.push(["Resumen total por trabajador"]); data.push(["Nombre","Horas Totales"]);
+  for(const t in totalPorTrabajador) data.push([t,totalPorTrabajador[t]]);
+  // resumen trabajo
+  data.push([]); data.push(["Resumen total por Trabajo"]); data.push(["Trabajo","Horas Totales"]);
+  for(const w in totalPorTrabajo) data.push([w,totalPorTrabajo[w]]);
   const ws=XLSX.utils.aoa_to_sheet(data);
   ws['!cols']=[{wch:12},{wch:20},{wch:12},{wch:10},{wch:25},{wch:10},{wch:12}];
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, currentCompany);
-  XLSX.writeFile(wb, `${currentCompany}_partes_obra.xlsx`);
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, currentCompany); XLSX.writeFile(wb, `${currentCompany}_partes_obra.xlsx`);
 }
 
 // ==== Inicializar PWA ====
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('sw.js')
-    .then(()=>console.log("Service Worker registrado"))
-    .catch(err=>console.log("Error Service Worker:", err));
-}
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').then(()=>console.log("Service Worker registrado")).catch(err=>console.log("Error Service Worker:",err)); }
 
 showMenu();
 </script>
