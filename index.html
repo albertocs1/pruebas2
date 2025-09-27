@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Partes de Obra 11</title>
+<title>Partes de Obra 1451</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#1e40af">
 <link rel="manifest" href="manifest.json">
@@ -14,57 +14,40 @@ h1 { margin-bottom:5px; text-align:left; font-size:2em; }
 #companyMenu, #calendarView { display:none; }
 .company-item { display:inline-block; padding:10px 20px; margin:5px 5px 5px 0; cursor:pointer; border-radius:25px; background:#1e40af; color:white; font-weight:bold; transition:all 0.3s ease; white-space:nowrap; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
 .company-item:hover { background:#3749c1; transform:translateY(-2px); }
-/* ==== Month Header ==== */
+/* ==== Month Header Desktop (compacto) ==== */
 #monthHeader {
-  display: flex;
-  align-items: center;
-  justify-content: center; /* título centrado por defecto */
-  gap: 10px; 
-  margin-bottom: 15px;
+  display:grid;
+  grid-template-columns:1fr auto 1fr;
+  align-items:center;
+  margin-bottom:15px;
 }
-
-#monthHeader button {
-  padding: 8px 16px;
-  border-radius: 6px;
-  background: transparent;
-  color: black;
-  font-weight: bold;
-  border: none;
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-#monthHeader button:hover {
-  background: rgba(0,0,0,0.05);
-  transform: translateY(-1px);
-}
-
-#monthHeader #calendarTitle {
-  flex: 1;
-  text-align: center;
-  font-size: 1.7em;
-  font-weight: bold;
-}
-/* ==== Móvil (<600px) ==== */
+#monthHeader #calendarTitle { font-size:1.7em; font-weight:bold; text-align:center; }
+#monthHeader button { padding:8px 16px; border-radius:6px; background:transparent; color:black; font-weight:bold; border:none; cursor:pointer; transition:0.2s; }
+#monthHeader button:first-child { justify-self:start; }
+#monthHeader button:last-child { justify-self:end; }
+#monthHeader button:hover { background: rgba(0,0,0,0.05); transform:translateY(-1px); }
+/* ==== Móvil ==== */
 @media(max-width:600px){
   #monthHeader {
-    flex-direction: row; /* horizontal */
-    justify-content: space-between; /* botones a los lados del título */
-    align-items: center;
+    flex-direction: column; /* apila título y botones */
     gap: 5px;
+    align-items: stretch;
+  }
+
+  #monthHeader button:first-child,
+  #monthHeader button:last-child {
+    margin: 0; /* elimina auto para apilamiento */
   }
 
   #monthHeader #calendarTitle {
     font-size: 1.2em;
     text-align: center;
-    flex: 1;
   }
 
   #monthHeader button {
-    padding: 6px 10px;
-    flex: none; /* no se expanden */
+    width: 100%; /* ocupa todo el ancho */
+    padding: 6px 0;
   }
-}
 
   .day { min-height:80px; padding:5px; font-size:0.85em; }
   .add-btn { width:24px; height:24px; font-size:14px; top:4px; right:4px; }
@@ -118,7 +101,7 @@ input, select { width:100%; padding:6px; margin-top:5px; border-radius:6px; bord
 </head>
 <body>
 
-<h1>Partes de Obra 11</h1>
+<h1>Partes de Obra 1451</h1>
 <h2 id="selectedCompanyName"></h2>
 
 <div id="companyMenu">
@@ -405,10 +388,6 @@ showMenu();
 </script>
 </body>
 </html>
-
-
-
-
 
 
 
