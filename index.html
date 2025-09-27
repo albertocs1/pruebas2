@@ -14,19 +14,20 @@ h1 { margin-bottom:5px; text-align:left; font-size:2em; }
 #companyMenu, #calendarView { display:none; }
 .company-item { display:inline-block; padding:10px 20px; margin:5px 5px 5px 0; cursor:pointer; border-radius:25px; background:#1e40af; color:white; font-weight:bold; transition:all 0.3s ease; white-space:nowrap; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
 .company-item:hover { background:#3749c1; transform:translateY(-2px); }
+/* ==== Month Header Desktop (compacto) ==== */
 #monthHeader {
   display: flex;
   align-items: center;
-  gap: 10px; /* espacio entre elementos */
+  gap: 10px;
   margin-bottom: 15px;
 }
 
 #monthHeader button:first-child {
-  margin-right: auto; /* empuja el botón izquierdo hacia la izquierda */
+  margin-right: auto; /* empuja botón izquierdo */
 }
 
 #monthHeader button:last-child {
-  margin-left: auto; /* empuja el botón derecho hacia la derecha */
+  margin-left: auto; /* empuja botón derecho */
 }
 
 #monthHeader #calendarTitle {
@@ -36,7 +37,7 @@ h1 { margin-bottom:5px; text-align:left; font-size:2em; }
 }
 
 #monthHeader button {
-  padding: 8px 16px;
+  padding: 8px 12px;
   border-radius: 6px;
   background: transparent;
   color: black;
@@ -49,6 +50,33 @@ h1 { margin-bottom:5px; text-align:left; font-size:2em; }
 #monthHeader button:hover {
   background: rgba(0,0,0,0.05);
   transform: translateY(-1px);
+}
+
+/* ==== Móvil ==== */
+@media(max-width:600px){
+  #monthHeader {
+    flex-direction: column; /* apila título y botones */
+    gap: 5px;
+    align-items: stretch;
+  }
+
+  #monthHeader button:first-child,
+  #monthHeader button:last-child {
+    margin: 0; /* elimina auto para apilamiento */
+  }
+
+  #monthHeader #calendarTitle {
+    font-size: 1.2em;
+    text-align: center;
+  }
+
+  #monthHeader button {
+    width: 100%; /* ocupa todo el ancho */
+    padding: 6px 0;
+  }
+
+  .day { min-height:80px; padding:5px; font-size:0.85em; }
+  .add-btn { width:24px; height:24px; font-size:14px; top:4px; right:4px; }
 }
 
 
@@ -386,5 +414,6 @@ showMenu();
 </script>
 </body>
 </html>
+
 
 
