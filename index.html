@@ -45,28 +45,26 @@ h1 { margin-bottom:5px; text-align:left; font-size:2em; }
   font-size: 1.7em;
   font-weight: bold;
 }
-/* ==== Móvil ==== */
+/* ==== Móvil (<600px) ==== */
 @media(max-width:600px){
   #monthHeader {
-    flex-direction: column; /* apila título y botones */
+    flex-direction: row; /* horizontal */
+    justify-content: space-between; /* botones a los lados del título */
+    align-items: center;
     gap: 5px;
-    align-items: stretch;
-  }
-
-  #monthHeader button:first-child,
-  #monthHeader button:last-child {
-    margin: 0; /* elimina auto para apilamiento */
   }
 
   #monthHeader #calendarTitle {
     font-size: 1.2em;
     text-align: center;
+    flex: 1;
   }
 
   #monthHeader button {
-    width: 100%; /* ocupa todo el ancho */
-    padding: 6px 0;
+    padding: 6px 10px;
+    flex: none; /* no se expanden */
   }
+}
 
   .day { min-height:80px; padding:5px; font-size:0.85em; }
   .add-btn { width:24px; height:24px; font-size:14px; top:4px; right:4px; }
@@ -407,6 +405,7 @@ showMenu();
 </script>
 </body>
 </html>
+
 
 
 
