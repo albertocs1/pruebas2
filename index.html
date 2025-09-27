@@ -14,12 +14,43 @@ h1 { margin-bottom:5px; text-align:left; font-size:2em; }
 #companyMenu, #calendarView { display:none; }
 .company-item { display:inline-block; padding:10px 20px; margin:5px 5px 5px 0; cursor:pointer; border-radius:25px; background:#1e40af; color:white; font-weight:bold; transition:all 0.3s ease; white-space:nowrap; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
 .company-item:hover { background:#3749c1; transform:translateY(-2px); }
-#monthHeader { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; margin-bottom:15px; }
-#monthHeader #calendarTitle { font-size:1.7em; font-weight:bold; text-align:center; }
-#monthHeader button { padding:8px 16px; border-radius:6px; background:transparent; color:black; font-weight:bold; border:none; cursor:pointer; transition:0.2s; }
-#monthHeader button:first-child { justify-self:start; }
-#monthHeader button:last-child { justify-self:end; }
-#monthHeader button:hover { background: rgba(0,0,0,0.05); transform:translateY(-1px); }
+#monthHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* espacio entre elementos */
+  margin-bottom: 15px;
+}
+
+#monthHeader button:first-child {
+  margin-right: auto; /* empuja el botón izquierdo hacia la izquierda */
+}
+
+#monthHeader button:last-child {
+  margin-left: auto; /* empuja el botón derecho hacia la derecha */
+}
+
+#monthHeader #calendarTitle {
+  font-size: 1.7em;
+  font-weight: bold;
+  text-align: center;
+}
+
+#monthHeader button {
+  padding: 8px 16px;
+  border-radius: 6px;
+  background: transparent;
+  color: black;
+  font-weight: bold;
+  border: none;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+#monthHeader button:hover {
+  background: rgba(0,0,0,0.05);
+  transform: translateY(-1px);
+}
+
 
 /* ==== Scroll horizontal sincronizado ==== */
 #calendarContainer { overflow-x: auto; display:block; }
@@ -355,3 +386,4 @@ showMenu();
 </script>
 </body>
 </html>
+
