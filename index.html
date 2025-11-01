@@ -234,16 +234,14 @@ function formatDate(dateStr){
   return parts[2].padStart(2,'0') + '/' + parts[1].padStart(2,'0') + '/' + parts[0];
 }
 function parseDateKey(dateKey){
-  // devuelve Date desde 'YYYY-M-D'
+  // devuelve Date desde 'YYYY-M-D' en hora local
   const parts = dateKey.split('-').map(n=>Number(n));
   return new Date(parts[0], parts[1]-1, parts[2]);
 }
-function padKey(y,m,d){ return `${y}-${m}-${d}`; } // mantengo mismo formato que usas en todo el script
 
 // ==== Firebase helpers ====
 function saveToStorage(){
   if(!currentCompany) return;
-  // guardo solo la empresa actual para evitar sobrescribir en conflicto
   db.ref('companies/'+currentCompany).set(companyData[currentCompany]);
 }
 function loadFromStorage(callback){
@@ -279,12 +277,10 @@ function renderCompanyList(){
     div.onclick = () => openCompany(c);
     container.appendChild(div);
   });
-  // botón ver calendario también
   document.getElementById('showMenuBtn').onclick = showMenu;
 }
 function openCompany(name){
   currentCompany = name;
-  // Asegurarse de que la estructura exista
   if(!companyData[currentCompany]) companyData[currentCompany] = { calendar:{}, templates:[] };
   if(!companyData[currentCompany].calendar) companyData[currentCompany].calendar = {};
   if(!companyData[currentCompany].templates) companyData[currentCompany].templates = [];
@@ -510,7 +506,6 @@ function showDaySummary(dateKey){
     deleteBtn.onclick = () => {
       if(confirm('Eliminar este registro?')){
         entries.splice(index,1);
-        // si queda vacío el día, eliminar la clave
         if(entries.length === 0) delete companyData[currentCompany].calendar[dateKey];
         saveToStorage();
         showDaySummary(dateKey);
@@ -528,6 +523,7 @@ function showDaySummary(dateKey){
 }
 
 // ==== Export Excel con rango de fechas y costes ====
+// Al pulsar Exportar: mostrar modal con inputs de fecha inicio/fin y costes por rango
 document.getElementById('exportBtn').onclick = () => {
   if(!currentCompany) return alert("Seleccione una empresa");
   const ranks = new Set();
@@ -571,6 +567,12 @@ function confirmCosts(){
   const startDate = document.getElementById('exportStartDate').value;
   const endDate = document.getElementById('exportEndDate').value;
   if(!startDate || !endDate) return alert("Seleccione fecha inicio y fin");
+
+  // validar orden fechas (mejora incluida)
+  const sCheck = new Date(`${startDate}T00:00:00`);
+  const eCheck = new Date(`${endDate}T23:59:59`);
+  if(sCheck > eCheck) return alert("La fecha de inicio no puede ser posterior a la fecha de fin");
+
   // llamar al callback pasando fechas (si existe)
   if(exportCallback) exportCallback(startDate, endDate);
   closeCostModal();
@@ -583,15 +585,13 @@ function exportExcel(startDate, endDate){
   let totalPorTrabajo = {};
   let importePorTrabajo = {};
 
-  // Evitar desfases de zona horaria: fijamos manualmente las fechas sin horas
-const start = new Date(`${startDate}T00:00:00`);
-const end = new Date(`${endDate}T23:59:59`);
-
-  // normalizar horas a 0..23
-  end.setHours(23,59,59,999);
+  // ✅ Corregido: incluir día inicial y final completos (evita desfases por zona horaria)
+  const start = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T23:59:59`);
 
   for(const dateKey in calendar){
-    const current = parseDateKey(dateKey);
+    // usamos hora intermedia (12:00) al convertir la fecha del registro para prevenir errores por zonas horarias
+    const current = new Date(`${dateKey}T12:00:00`);
     if(current < start || current > end) continue;
     calendar[dateKey].forEach(entry => {
       entry.works.forEach(work => {
@@ -620,7 +620,7 @@ const end = new Date(`${endDate}T23:59:59`);
   const ws = XLSX.utils.aoa_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, currentCompany);
-  // nombre de fichero con rango de fechas (reemplaza / por - para seguridad)
+  // nombre de fichero con rango de fechas (reemplaza - para seguridad)
   const s = startDate.replace(/-/g,'');
   const e = endDate.replace(/-/g,'');
   XLSX.writeFile(wb, `${currentCompany}_partes_obra_${s}_a_${e}.xlsx`);
@@ -643,4 +643,3 @@ showMenu();
 </script>
 </body>
 </html>
-
