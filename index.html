@@ -583,8 +583,10 @@ function exportExcel(startDate, endDate){
   let totalPorTrabajo = {};
   let importePorTrabajo = {};
 
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  // Evitar desfases de zona horaria: fijamos manualmente las fechas sin horas
+const start = new Date(`${startDate}T00:00:00`);
+const end = new Date(`${endDate}T23:59:59`);
+
   // normalizar horas a 0..23
   end.setHours(23,59,59,999);
 
@@ -641,3 +643,4 @@ showMenu();
 </script>
 </body>
 </html>
+
