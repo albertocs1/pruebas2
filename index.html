@@ -626,27 +626,27 @@ function confirmCosts(){
   closeCostModal();
 }
 
-function exportExcel(startDate, endDate){
-  const calendar = (companyData[currentCompany] && companyData[currentCompany].calendar) ? companyData[currentCompany].calendar : {};
-  let data = [["Fecha","Nombre","Rango","Coste","Trabajo","Horas","Importe"]];
+function exportExcel(startDate, endDate) {
+  const calendar = companyData[currentCompany].calendar;
+  let data = [["Fecha", "Nombre", "Rango", "Coste", "Trabajo", "Horas", "Importe"]];
   let totalPorTrabajador = {};
   let totalPorTrabajo = {};
   let importePorTrabajo = {};
 
-  // ✅ Incluir día inicial y final completos (evita desfases por zona horaria)
-  const start = new Date(`${startDate}T00:00:00`);
-  const end = new Date(`${endDate}T23:59:59`);
+  // ✅ Convertir fechas a enteros YYYYMMDD para comparar sin problemas de zona horaria
+  const startNum = parseInt(startDate.replaceAll("-", ""));
+  const endNum = parseInt(endDate.replaceAll("-", ""));
 
-  for(const dateKey in calendar){
-    // parseDateKey maneja 'YYYY-M-D' y 'YYYY-MM-DD'
-    const current = parseDateKey(dateKey);
-    // comparar en tiempo local; si está fuera del rango lo saltamos
-    if(current < start || current > end) continue;
+  for (const dateKey in calendar) {
+    const dateNum = parseInt(dateKey.replaceAll("-", ""));
+    if (dateNum < startNum || dateNum > endNum) continue; // ✅ comparación directa de números
+
     calendar[dateKey].forEach(entry => {
       entry.works.forEach(work => {
         const coste = costByRank[entry.rank] || 0;
         const importe = coste * work.hours;
-        data.push([ formatDate(dateKey), entry.name, entry.rank, coste, work.work, work.hours, importe ]);
+        data.push([formatDate(dateKey), entry.name, entry.rank, coste, work.work, work.hours, importe]);
+
         totalPorTrabajador[entry.name] = (totalPorTrabajador[entry.name] || 0) + work.hours;
         totalPorTrabajo[work.work] = (totalPorTrabajo[work.work] || 0) + work.hours;
         importePorTrabajo[work.work] = (importePorTrabajo[work.work] || 0) + importe;
@@ -654,26 +654,26 @@ function exportExcel(startDate, endDate){
     });
   }
 
-  // Añadir resúmenes
   data.push([]);
   data.push(["Resumen total por trabajador"]);
-  data.push(["Nombre","Horas Totales"]);
-  for(const t in totalPorTrabajador) data.push([t, totalPorTrabajador[t]]);
+  data.push(["Nombre", "Horas Totales"]);
+  for (const t in totalPorTrabajador) data.push([t, totalPorTrabajador[t]]);
 
   data.push([]);
   data.push(["Resumen total por Trabajo"]);
-  data.push(["Trabajo","Horas Totales","Importe Total"]);
-  for(const w in totalPorTrabajo) data.push([w, totalPorTrabajo[w], importePorTrabajo[w]]);
+  data.push(["Trabajo", "Horas Totales", "Importe Total"]);
+  for (const w in totalPorTrabajo)
+    data.push([w, totalPorTrabajo[w], importePorTrabajo[w]]);
 
-  // Crear y descargar Excel
   const ws = XLSX.utils.aoa_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, currentCompany);
-  // nombre de fichero con rango de fechas (sin guiones)
-  const s = startDate.replace(/-/g,'');
-  const e = endDate.replace(/-/g,'');
-  XLSX.writeFile(wb, `${currentCompany}_partes_obra_${s}_a_${e}.xlsx`);
+  XLSX.writeFile(
+    wb,
+    `${currentCompany}_partes_obra_${startDate}_a_${endDate}.xlsx`
+  );
 }
+
 
 // ==== PWA Service Worker (opcional) ====
 if('serviceWorker' in navigator){
@@ -692,3 +692,4 @@ showMenu();
 </script>
 </body>
 </html>
+
