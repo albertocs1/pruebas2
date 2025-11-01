@@ -206,6 +206,33 @@ input, select, textarea { width:100%; padding:8px; margin-top:6px; border-radius
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <script>
+// ==================== UTIL HELPERS PARA FECHAS ====================
+
+// Formatea número con dos dígitos
+function pad(n){ return String(n).padStart(2,'0'); }
+
+// Devuelve 'YYYY-MM-DD' garantizado con ceros a la izquierda
+function toDateInputValue(date){
+  const y = date.getFullYear();
+  const m = pad(date.getMonth()+1);
+  const d = pad(date.getDate());
+  return `${y}-${m}-${d}`;
+}
+
+// Dado un dateKey en cualquiera de los formatos 'YYYY-M-D' o 'YYYY-MM-DD', devuelve Date en hora local
+function parseDateKey(dateKey){
+  const parts = dateKey.split('-').map(p => Number(p));
+  return new Date(parts[0], parts[1]-1, parts[2]);
+}
+
+// Formatea dateKey (acepta 'YYYY-M-D' y normaliza a 'DD/MM/YYYY' para mostrar)
+function formatDate(dateStr){
+  const parts = dateStr.split('-').map(p=>p.padStart(2,'0'));
+  return parts[2] + '/' + parts[1] + '/' + parts[0];
+}
+
+// ==================== FIN HELPERS ====================
+
 // ==== Firebase ====
 const firebaseConfig = {
   apiKey: "AIzaSyBeF5tQ7lO6fjiOu1IeINTzWD0IJC6y1To",
@@ -227,23 +254,9 @@ let currentYear = null;
 let costByRank = {};
 let exportCallback = null;
 
-// ==== Utils de fechas ====
-function formatDate(dateStr){
-  // dateStr formato 'YYYY-M-D' o 'YYYY-MM-DD'
-  const parts = dateStr.split('-').map(p=>p.padStart(2,'0'));
-  return parts[2].padStart(2,'0') + '/' + parts[1].padStart(2,'0') + '/' + parts[0];
-}
-function parseDateKey(dateKey){
-  // devuelve Date desde 'YYYY-M-D'
-  const parts = dateKey.split('-').map(n=>Number(n));
-  return new Date(parts[0], parts[1]-1, parts[2]);
-}
-function padKey(y,m,d){ return `${y}-${m}-${d}`; } // mantengo mismo formato que usas en todo el script
-
 // ==== Firebase helpers ====
 function saveToStorage(){
   if(!currentCompany) return;
-  // guardo solo la empresa actual para evitar sobrescribir en conflicto
   db.ref('companies/'+currentCompany).set(companyData[currentCompany]);
 }
 function loadFromStorage(callback){
@@ -279,12 +292,10 @@ function renderCompanyList(){
     div.onclick = () => openCompany(c);
     container.appendChild(div);
   });
-  // botón ver calendario también
   document.getElementById('showMenuBtn').onclick = showMenu;
 }
 function openCompany(name){
   currentCompany = name;
-  // Asegurarse de que la estructura exista
   if(!companyData[currentCompany]) companyData[currentCompany] = { calendar:{}, templates:[] };
   if(!companyData[currentCompany].calendar) companyData[currentCompany].calendar = {};
   if(!companyData[currentCompany].templates) companyData[currentCompany].templates = [];
@@ -303,6 +314,7 @@ function prevMonth(){ currentMonth--; if(currentMonth < 0){ currentMonth = 11; c
 function nextMonth(){ currentMonth++; if(currentMonth > 11){ currentMonth = 0; currentYear++; } renderCalendar(); }
 
 // ==== Render calendario ====
+// IMPORTANTE: ahora normalizamos dateKey a 'YYYY-MM-DD' con ceros a la izquierda
 function renderCalendar(){
   const calendarDiv = document.getElementById('calendar');
   calendarDiv.innerHTML = '';
@@ -320,15 +332,16 @@ function renderCalendar(){
   }
 
   const today = new Date();
-  const todayStr = `${today.getFullYear()}-${today.getMonth()+1}-${today.getDate()}`;
+  const todayKey = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
 
   for(let day=1; day<=daysInMonth; day++){
     const dateObj = new Date(currentYear, currentMonth, day);
-    const dateKey = `${currentYear}-${currentMonth+1}-${day}`; // mismo formato que guardas
+    // <-- FIX: dateKey siempre en formato 'YYYY-MM-DD'
+    const dateKey = `${currentYear}-${pad(currentMonth+1)}-${pad(day)}`;
     const div = document.createElement('div');
     div.className = 'day';
     if(((dateObj.getDay()+6)%7) >= 5) div.classList.add('weekend');
-    if(dateKey === todayStr) div.classList.add('today');
+    if(dateKey === todayKey) div.classList.add('today');
 
     const dayNumber = document.createElement('div');
     dayNumber.textContent = day;
@@ -345,10 +358,25 @@ function renderCalendar(){
     div.appendChild(btn);
 
     const dayData = (companyData[currentCompany] && companyData[currentCompany].calendar) ? companyData[currentCompany].calendar[dateKey] : null;
-    if(dayData && dayData.length > 0){
+
+    // Compatibilidad: si la data está almacenada con claves sin padding,
+    // buscamos también con la versión sin pad (por compatibilidad retroactiva)
+    if(!dayData && companyData[currentCompany] && companyData[currentCompany].calendar){
+      // buscar posibles claves que coincidan con el mismo día pero distinto formato
+      const altKey1 = `${currentYear}-${currentMonth+1}-${day}`; // e.g. 2025-11-1
+      if(companyData[currentCompany].calendar[altKey1]) {
+        // normalizamos migrando la clave al formato pad (opcional)
+        companyData[currentCompany].calendar[dateKey] = companyData[currentCompany].calendar[altKey1];
+        delete companyData[currentCompany].calendar[altKey1];
+      }
+    }
+
+    const finalDayData = (companyData[currentCompany] && companyData[currentCompany].calendar) ? companyData[currentCompany].calendar[dateKey] : null;
+
+    if(finalDayData && finalDayData.length > 0){
       const preview = document.createElement('div');
       preview.className = 'worker-preview-container';
-      dayData.forEach(w => {
+      finalDayData.forEach(w => {
         const p = document.createElement('div');
         p.textContent = `${w.name} (${w.total}h)`;
         p.style.fontSize = '0.9rem';
@@ -510,7 +538,6 @@ function showDaySummary(dateKey){
     deleteBtn.onclick = () => {
       if(confirm('Eliminar este registro?')){
         entries.splice(index,1);
-        // si queda vacío el día, eliminar la clave
         if(entries.length === 0) delete companyData[currentCompany].calendar[dateKey];
         saveToStorage();
         showDaySummary(dateKey);
@@ -528,6 +555,7 @@ function showDaySummary(dateKey){
 }
 
 // ==== Export Excel con rango de fechas y costes ====
+// Al pulsar Exportar: mostrar modal con inputs de fecha inicio/fin y costes por rango
 document.getElementById('exportBtn').onclick = () => {
   if(!currentCompany) return alert("Seleccione una empresa");
   const ranks = new Set();
@@ -540,11 +568,23 @@ document.getElementById('exportBtn').onclick = () => {
   const container = document.getElementById('costInputs');
   container.innerHTML = '';
 
-  // Inputs de fechas
+  // ===== Calculamos rango mínimo y máximo de fechas presentes en el calendario =====
+  let minDate = null;
+  let maxDate = null;
+  for(const dk in calendar){
+    const d = parseDateKey(dk);
+    if(!minDate || d < minDate) minDate = d;
+    if(!maxDate || d > maxDate) maxDate = d;
+  }
+  // Si no hay datos minDate/maxDate se dejan sin valor
+  const minValue = minDate ? toDateInputValue(minDate) : '';
+  const maxValue = maxDate ? toDateInputValue(maxDate) : '';
+
+  // Inputs de fechas (con default al rango existente y con min/max fijados)
   const dateDiv = document.createElement('div');
   dateDiv.innerHTML = `
-    <label>Fecha inicio: <input type="date" id="exportStartDate"></label>
-    <label>Fecha fin: <input type="date" id="exportEndDate"></label>
+    <label>Fecha inicio: <input type="date" id="exportStartDate" value="${minValue}" min="${minValue}" max="${maxValue}"></label>
+    <label>Fecha fin: <input type="date" id="exportEndDate" value="${maxValue}" min="${minValue}" max="${maxValue}"></label>
   `;
   container.appendChild(dateDiv);
 
@@ -568,9 +608,19 @@ function confirmCosts(){
   });
 
   // leer fechas
-  const startDate = document.getElementById('exportStartDate').value;
-  const endDate = document.getElementById('exportEndDate').value;
-  if(!startDate || !endDate) return alert("Seleccione fecha inicio y fin");
+  const startDateRaw = document.getElementById('exportStartDate').value;
+  const endDateRaw = document.getElementById('exportEndDate').value;
+  if(!startDateRaw || !endDateRaw) return alert("Seleccione fecha inicio y fin");
+
+  // Validación y normalización (asegura formato YYYY-MM-DD)
+  const startDate = startDateRaw;
+  const endDate = endDateRaw;
+
+  // validar orden fechas
+  const sCheck = new Date(`${startDate}T00:00:00`);
+  const eCheck = new Date(`${endDate}T23:59:59`);
+  if(sCheck > eCheck) return alert("La fecha de inicio no puede ser posterior a la fecha de fin");
+
   // llamar al callback pasando fechas (si existe)
   if(exportCallback) exportCallback(startDate, endDate);
   closeCostModal();
@@ -583,13 +633,14 @@ function exportExcel(startDate, endDate){
   let totalPorTrabajo = {};
   let importePorTrabajo = {};
 
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  // normalizar horas a 0..23
-  end.setHours(23,59,59,999);
+  // ✅ Incluir día inicial y final completos (evita desfases por zona horaria)
+  const start = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T23:59:59`);
 
   for(const dateKey in calendar){
+    // parseDateKey maneja 'YYYY-M-D' y 'YYYY-MM-DD'
     const current = parseDateKey(dateKey);
+    // comparar en tiempo local; si está fuera del rango lo saltamos
     if(current < start || current > end) continue;
     calendar[dateKey].forEach(entry => {
       entry.works.forEach(work => {
@@ -618,7 +669,7 @@ function exportExcel(startDate, endDate){
   const ws = XLSX.utils.aoa_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, currentCompany);
-  // nombre de fichero con rango de fechas (reemplaza / por - para seguridad)
+  // nombre de fichero con rango de fechas (sin guiones)
   const s = startDate.replace(/-/g,'');
   const e = endDate.replace(/-/g,'');
   XLSX.writeFile(wb, `${currentCompany}_partes_obra_${s}_a_${e}.xlsx`);
